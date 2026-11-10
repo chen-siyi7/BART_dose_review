@@ -10,8 +10,13 @@ source_hash_matches <- function(path, expected, root) {
   if(!startsWith(path,paste0(root,'/')) || !file.exists(record)) return(FALSE)
   entries <- jsonlite::read_json(record,simplifyVector=FALSE)$files
   entry <- entries[[substring(path,nchar(root)+2L)]]
+  revision<-!is.null(entry)&&identical(entry$change,'interval_and_exact_score_handling')&&
+    identical(entry$validation$status,'PASS')&&
+    identical(entry$validation$file,'REVISION_VALIDATION.json')&&
+    file.exists(file.path(root,entry$validation$file))&&
+    identical(digest::digest(file=file.path(root,entry$validation$file),algo='sha256'),entry$validation$sha256)
   !is.null(entry) && isTRUE(entry$comment_free) &&
-    entry$change %in% c('comments_only','comments_and_source_verification') &&
+    (entry$change %in% c('comments_only','comments_and_source_verification')||revision) &&
     identical(actual,entry$distributed_sha256) &&
     identical(expected,entry$original_sha256)
 }

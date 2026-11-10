@@ -3,34 +3,57 @@ target_cost <- function(doses,gates,q,target,eta=0) {
   z<-membership_costs(gates)
   if(target==0L) return(sum(z$rho[z$keep]))
   r<-match(target,doses);stopifnot(!is.na(r),eta>=0,eta<=1)
-  lo<-pmax(0,q-eta);hi<-min(1,q[r]+eta)
+  q<-gmp::as.bigq(q);eta<-gmp::as.bigq(eta)
+  lo<-q-eta;lo[lo<0]<-0;hi<-min(gmp::as.bigq(1),q[r]+eta)
   blockers<-setdiff(which(z$keep&(lo>hi|(lo==hi&seq_along(doses)<r))),r)
   (if(z$keep[r])0 else z$rho[r])+sum(z$rho[blockers])
 }
-frontier_curve <- function(doses,gates,q) {
-  breaks<-sort(unique(c(0,1,as.vector(outer(q,q,`-`))/2)))
-  breaks<-breaks[breaks>=0&breaks<=1]
-  rows<-list()
-  for(i in seq_along(breaks)) {
-    eta<-breaks[i];costs<-frontier_costs('Final',doses,gates,q,eta)
-    rows[[length(rows)+1L]]<-data.frame(eta=eta,side='point',target=names(costs),cost=as.numeric(costs))
-    if(i<length(breaks)) {
-      mid<-(eta+breaks[i+1L])/2;costs<-frontier_costs('Final',doses,gates,q,mid)
-      rows[[length(rows)+1L]]<-data.frame(eta=eta,side='open-right',target=names(costs),cost=as.numeric(costs))
+frontier_curve <- function(doses, gates, q) {
+    index <- prepare_score_index(doses, gates, q)
+    q <- index$q
+    J <- length(doses)
+    eligible <- index$eligible
+    groups <- if (length(eligible)) 
+        split(eligible, cumsum(c(TRUE, as.logical(diff(q[eligible]) != 0))))
+    else list()
+    out <- vector("list", J + 1L)
+    out[[1L]] <- data.frame(target = 0, eta = "0", at_cost = sum(index$rho[index$keep]), right_cost = sum(index$rho[index$keep]))
+    for (r in seq_len(J)) {
+        higher <- eligible[q[eligible] > q[r]]
+        tied <- eligible[q[eligible] == q[r] & eligible < r]
+        entry <- if (index$keep[r]) 
+            0
+        else index$rho[r]
+        running <- entry + sum(index$rho[higher])
+        rows <- vector("list", length(groups) + 1L)
+        n <- 1L
+        rows[[n]] <- data.frame(target = doses[r], eta = "0", at_cost = running + sum(index$rho[tied]), right_cost = running)
+        for (g in groups) if (q[g[1L]] > q[r]) {
+            event <- (q[g[1L]] - q[r])/2
+            at <- running - sum(index$rho[g[g > r]])
+            running <- running - sum(index$rho[g])
+            n <- n + 1L
+            rows[[n]] <- data.frame(target = doses[r], eta = as.character(event), at_cost = at, right_cost = running)
+        }
+        out[[r + 1L]] <- do.call(rbind, rows[seq_len(n)])
     }
-  };do.call(rbind,rows)
+    lookup <- new.env(hash = TRUE, parent = emptyenv())
+    for (rows in out) assign(as.character(rows$target[1L]), list(eta = gmp::as.bigq(rows$eta), at_cost = rows$at_cost, 
+        right_cost = rows$right_cost), lookup)
+    structure(do.call(rbind, out), class = c("dose_cost_curves", "data.frame"), lookup = lookup)
 }
 frontier_witness <- function(doses,gates,q,target,eta=0) {
-  z<-membership_costs(gates);K<-gates;score<-pmax(0,q-eta)
+  z<-membership_costs(gates);K<-gates;q<-gmp::as.bigq(q);eta<-gmp::as.bigq(eta)
+  score<-q-eta;score[score<0]<-0
   r<-if(target==0L)0L else match(target,doses);stopifnot(!is.na(r))
   if(r==0L) remove<-which(z$keep) else {
-    score[r]<-min(1,q[r]+eta)
+    score[r]<-min(gmp::as.bigq(1),q[r]+eta)
     if(!z$keep[r]) K[r,]<-pmax(K[r,],300)
     remove<-setdiff(which(z$keep&(score>score[r]|(score==score[r]&seq_along(doses)<r))),r)
   }
   for(j in remove) K[j,which.min(K[j,])]<-299L
   cost<-sum(abs(K-gates));stopifnot(cost==target_cost(doses,gates,q,target,eta))
-  keep<-apply(K,1L,function(g)all(g>=300));winner<-if(any(keep))doses[which(keep)[which.max(score[keep])]] else 0L
+  keep<-apply(K,1L,function(g)all(g>=300));winner<-if(any(keep))doses[which(keep)[which(score[keep]==max(score[keep]))[1L]]] else 0L
   stopifnot(winner==target)
   list(target=target,cost=cost,counts=K,scores=score)
 }

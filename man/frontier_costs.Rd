@@ -15,7 +15,7 @@ frontier_witness(doses, gates, q, target, eta = 0)
 \item{eta}{Maximum absolute change allowed in each efficacy mean, between zero and one.}
 \item{target}{The final dose label to attain, or zero for no eligible dose.}
 }
-\details{Cost is the sum of absolute screening-count changes. Ranking ties favor the earlier dose in the supplied order.}
+\details{Cost is the sum of absolute screening-count changes. Ranking ties favor the earlier dose in the supplied order. Final score comparisons use exact rational arithmetic on the supplied numeric values. Attaining scores returned by \code{frontier_witness} are \code{gmp::bigq} values.}
 \value{\code{frontier_costs} returns a named vector of minimum costs. \code{frontier_witness} returns the target, cost, modified count matrix and modified efficacy scores.}
 \examples{
 counts <- matrix(c(301, 301), ncol = 1)

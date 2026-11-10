@@ -1,0 +1,56 @@
+library(bartDoseReview)
+boundary<-getFromNamespace('audit_query_boundaries','bartDoseReview')()
+stopifnot(boundary$status=='PASS',boundary$target_queries>800L)
+oracle<-getFromNamespace('query_mask_cost','bartDoseReview')
+set.seed(20261109)
+for(J in 1:7)for(replicate in 1:8) {
+  doses<-(seq_len(J)*3L)[sample.int(J)]
+  gates<-matrix(sample(c(0,298:302,1000),J*2L,replace=TRUE),J)
+  q<-sample(c(0,.1,.25,.5,.7,1,runif(J)),J,replace=TRUE)
+  index<-prepare_score_index(doses,gates,q);curves<-frontier_curve(doses,gates,q)
+  events<-sort(unique(c(gmp::as.bigq(curves$eta),gmp::as.bigq(c(0,1)))))
+  probes<-c(events,(events[-1L]+events[-length(events)])/2)
+  for(p in seq_along(probes))for(target in c(0,doses)) {
+    expected<-oracle(doses,gates,q,target,probes[p])
+    stopifnot(indexed_cost(index,target,probes[p])==expected,
+      curve_cost(curves,target,probes[p])==expected,
+      frontier_costs('Final',doses,gates,q,probes[p])[[paste0('dose:',target)]]==expected,
+      frontier_witness(doses,gates,q,target,probes[p])$cost==expected)
+  }
+  stopifnot(nrow(curves)<=1L+J+J*(J-1L)/2L,
+    length(index$prefix)<=J+1L,length(ls(index$positions))==J)
+}
+for(q in list(numeric(),.2))for(endpoint in c('T','E')) {
+  z<-probability_intervals(q,endpoint,.01/60)
+  stopifnot(z$accepted==length(q),z$gate_lower==0,z$gate_upper==1,
+    z$mean_lower==0,z$mean_upper==1)
+}
+z<-probability_intervals(rep(.2,25),'T',.01/60)
+stopifnot(z$gate_lower>0,z$gate_upper==1,z$mean_lower<=.2,z$mean_upper>=.2)
+diagnostic<-getFromNamespace('diagnostic_intervals','bartDoseReview')
+rows<-expand.grid(series=c('T_mean','E_mean','T_gate','E_gate'),dose=1:5,stringsAsFactors=FALSE)
+rows$qualified<-rows$precision_filtered<-FALSE
+rows$lower<-.4;rows$upper<-.6
+z<-diagnostic(rows)
+stopifnot(z$consistent,length(interval_actions('Final',z$gates,z$scores))==6L,
+  length(interval_actions('IA1',z$gates,z$scores))==32L)
+rows$qualified<-rows$precision_filtered<-TRUE
+rows$lower[rows$series=='E_mean']<-.8;rows$upper[rows$series=='E_mean']<-.9
+rows$lower[rows$series=='E_gate']<-.1;rows$upper[rows$series=='E_gate']<-.2
+for(mode in c('decision','uniform')) {
+  z<-diagnostic(rows,mode)
+  stopifnot(!z$consistent,z$status=='INCONSISTENT_INTERVALS',length(z$inconsistent_doses)==5L,
+    length(interval_actions('Final',z$gates,z$scores))==6L,
+    length(interval_actions('IA1',z$gates,z$scores))==32L)
+}
+rows$qualified<-rows$precision_filtered<-FALSE
+rows$qualified[1L]<-TRUE;rows$lower[1L]<-.9;rows$upper[1L]<-.8
+z<-diagnostic(rows)
+stopifnot(!z$consistent,length(z$invalid_intervals)==1L,
+  length(interval_actions('Final',z$gates,z$scores))==6L)
+rows$qualified<-rows$precision_filtered<-TRUE
+rows$lower<-0;rows$upper<-1
+rows$lower[rows$series=='E_mean']<-0;rows$upper[rows$series=='E_mean']<-0
+rows$lower[rows$series=='E_gate']<-0;rows$upper[rows$series=='E_gate']<-0
+z<-diagnostic(rows)
+stopifnot(z$consistent,all(vapply(z$gates,function(g)g[2L,1L]<=g[2L,2L],TRUE)))

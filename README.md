@@ -29,9 +29,21 @@ interval_actions("Final", gates, scores)
 
 The result is `"dose:2"`. Use `help(package = "bartDoseReview")` for function documentation.
 
+## Query alternative recommendations
+
+```r
+counts <- matrix(c(301, 301, 299), ncol = 1)
+index <- prepare_score_index(1:3, counts, c(0.5, 0.5, 0.2))
+curves <- frontier_curve(1:3, counts, c(0.5, 0.5, 0.2))
+indexed_cost(index, target = 2, eta = 0)
+curve_cost(curves, target = 2, eta = gmp::as.bigq("1/100"))
+```
+
+The index stores cumulative removal costs. The sparse curves record the cost at each change point and immediately to its right. Exact rational arithmetic preserves score ties.
+
 ## Reproduce the analyses
 
-Use the separate full reproducibility bundle, which contains the data, saved draws and run records. Set `bundle` to its directory containing `MANIFEST.json`, `replay_all.R` and `data/`, and choose a new output directory:
+Version 0.2.0 accompanies the revised submission. The separate archive `06_reproducibility_anonymous.zip` contains the data, saved draws and run records; it is supplied with the submission materials. Extract it into a directory named `reproducibility`. The code repository contains no study data. Current and recorded earlier source versions are checked before replay. Set `bundle` to its directory containing `MANIFEST.json`, `replay_all.R` and `data/`, and choose a new output directory:
 
 ```r
 bundle <- "/path/to/reproducibility"
@@ -43,6 +55,7 @@ This verifies the bundle and its source version before reconstructing the saved 
 ```r
 run_analysis("feasibility", bundle, "/path/to/new/feasibility")
 run_analysis("figures", bundle, "/path/to/new/figures")
+run_analysis("queries", bundle, "/path/to/new/query_checks")
 ```
 
 `?run_analysis` lists the supported studies. The clinical source data are from [Waldbaum et al. (2020)](https://doi.org/10.1371/journal.pone.0232394); original files and attribution remain in the separate bundle.

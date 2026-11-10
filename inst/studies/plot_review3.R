@@ -31,19 +31,19 @@ write.csv(all,sub('[.]png$','.csv',output),row.names=FALSE)
 library(ggplot2)
 source(file.path(root,'R/plot_style.R'))
 safety <- ggplot(a,aes(x=proposals/1e6,ymin=gate_lower,ymax=gate_upper)) +
-  geom_errorbar(width=.07,linewidth=.55,colour=review_colours['grey']) +
-  geom_hline(yintercept=.30,linetype='dashed',linewidth=.4,colour=review_colours['ink']) +
-  scale_x_continuous(breaks=a$proposals/1e6) +
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.25)) +
-  labs(title='(a)',
-       x='Proposals per endpoint (millions)',y='Screening probability') + review_theme()
+  geom_errorbar(width=.055,linewidth=.4,colour=review_colours['ink']) +
+  geom_hline(yintercept=.30,linetype='dashed',linewidth=.3,colour=review_colours['guide']) +
+  scale_x_continuous(breaks=a$proposals/1e6,labels=c('0.1','1','2')) +
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.2),labels=function(x)sprintf('%.1f',x)) +
+  labs(title='(a) Safety at dose 4',
+       x='Prior draws (millions)',y='Safety-screening probability') + review_theme()
 efficacy <- ggplot(b,aes(x=factor(dose,levels=c(4,1),labels=c('Dose 4','Dose 1')),
-                       ymin=mean_lower,ymax=mean_upper,colour=factor(dose))) +
-  geom_errorbar(width=.12,linewidth=.55) +
-  scale_colour_manual(values=c('1'=unname(review_colours['blue']),'4'=unname(review_colours['grey']))) +
+                       ymin=mean_lower,ymax=mean_upper)) +
+  geom_errorbar(width=.10,linewidth=.4,colour=review_colours['ink']) +
+  scale_y_continuous(limits=c(.37,.49),breaks=seq(.38,.48,.02),labels=function(x)sprintf('%.2f',x)) +
   coord_flip() +
-  labs(title='(b)',
-       x=NULL,y='Posterior mean efficacy') + review_theme() + theme(legend.position='none')
-save_review_panels(list(safety,efficacy),sub('[.]png$','',output),6.8,3.35)
+  labs(title='(b) Efficacy at doses 1 and 4',
+       x=NULL,y='Mean efficacy') + review_theme() + theme(legend.position='none')
+save_review_panels(list(safety,efficacy),sub('[.]png$','',output),6.5,3.05)
 stopifnot(file.exists(output),file.info(output)$size>10000)
 cat('Figure intervals independently reconstructed from accepted draws\n')

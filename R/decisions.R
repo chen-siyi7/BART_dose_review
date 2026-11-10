@@ -43,7 +43,9 @@ frontier_costs <- function(stage,doses,gates,q,eta=0) {
     cost<-apply(bits,1L,function(b) sum(rho[b!=keep]))
     return(setNames(cost,apply(bits,1L,mask_label,doses=doses)))
   }
-  lo<-pmax(0,q-eta);hi<-pmin(1,q+eta)
+  q<-gmp::as.bigq(q);eta<-gmp::as.bigq(eta)
+  stopifnot(length(q)==length(doses),length(eta)==1L,all(q>=0),all(q<=1),eta>=0,eta<=1)
+  lo<-q-eta;lo[lo<0]<-0;hi<-q+eta;hi[hi>1]<-1
   cost<-vapply(seq_along(doses),function(r) {
     blockers<-which(keep&(lo>hi[r]|(lo==hi[r]&seq_along(doses)<r)))
     blockers<-setdiff(blockers,r)
@@ -77,16 +79,26 @@ kl_interval <- function(mean,n,tail) {
   c(lo,hi)
 }
 diagnostic_intervals <- function(rows,mode='decision') {
+  invalid<-character()
   band<-function(kind,j) {
     r<-rows[rows$series==kind&rows$dose==j,,drop=FALSE];stopifnot(nrow(r)==1L)
     ok<-if(mode=='uniform') r$precision_filtered else r$qualified
-    if(isTRUE(ok)) c(r$lower,r$upper) else c(0,1)
+    if(!isTRUE(ok))return(c(0,1))
+    value<-c(r$lower,r$upper)
+    if(length(value)!=2L||any(!is.finite(value))||value[1L]<0||value[2L]>1||value[1L]>value[2L]) {
+      invalid<<-c(invalid,paste(kind,j,sep=':'));return(c(0,1))
+    }
+    value
   }
   gates<-lapply(1:5,function(j) do.call(rbind,lapply(c('T','E'),function(e) {
     gate<-band(paste0(e,'_gate'),j);mu<-band(paste0(e,'_mean'),j)
     bounds<-if(e=='T') c(max(0,1-mu[2]/.45),min(1,(1-mu[1])/.55)) else c(max(0,(mu[1]-.3)/.7),min(1,mu[2]/.3))
-    out<-c(max(gate[1],bounds[1]),min(gate[2],bounds[2]));stopifnot(out[1]<=out[2]+1e-12);out
+    c(max(gate[1],bounds[1]),min(gate[2],bounds[2]))
   })))
   scores<-t(vapply(1:5,function(j) band('E_mean',j),numeric(2)))
-  list(gates=gates,scores=scores)
+  inconsistent<-which(!vapply(gates,function(g)all(is.finite(g))&&all(g[,1L]<=g[,2L]),TRUE))
+  if(length(inconsistent)||length(invalid))return(list(gates=rep(list(matrix(c(0,0,1,1),2L)),5L),
+    scores=matrix(rep(c(0,1),each=5L),5L),consistent=FALSE,
+    status='INCONSISTENT_INTERVALS',inconsistent_doses=inconsistent,invalid_intervals=unique(invalid)))
+  list(gates=gates,scores=scores,consistent=TRUE,status='VALID',inconsistent_doses=integer())
 }

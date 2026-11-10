@@ -29,15 +29,15 @@ compression$offset <- ave(seq_len(nrow(compression)),compression$bank,
                           FUN=function(x)seq(-.03,.03,length.out=length(x)))
 shortening <- ggplot(compression) +
  geom_segment(aes(x=1+offset,xend=2+offset,y=full_mean,yend=minimum_mean),
-              linewidth=.35,alpha=.45,colour=review_colours['grey']) +
- geom_point(aes(x=1+offset,y=full_mean),shape=1,size=1.8,stroke=.5,colour=review_colours['grey']) +
- geom_point(aes(x=2+offset,y=minimum_mean),size=1.8,colour=review_colours['blue']) +
+              linewidth=.3,colour=review_colours['secondary']) +
+ geom_point(aes(x=1+offset,y=full_mean),shape=1,size=1.5,stroke=.4,colour=review_colours['ink']) +
+ geom_point(aes(x=2+offset,y=minimum_mean),shape=16,size=1.5,colour=review_colours['ink']) +
  facet_wrap(~bank,nrow=1) +
- scale_x_continuous(breaks=c(1,2),labels=c('Full\nsummary','Shortest\nreport'),limits=c(.7,2.3)) +
- scale_y_continuous(limits=c(0,11),breaks=seq(0,10,2)) +
+ scale_x_continuous(breaks=c(1,2),labels=c('Full\nreport','Shortest\nreport'),limits=c(.7,2.3)) +
+ scale_y_continuous(limits=c(4,10.5),breaks=4:10) +
  labs(x=NULL,y='Mean number of intervals') + review_theme() +
  theme(legend.position='none',panel.grid.major.x=element_blank())
-save_review_plot(shortening,file.path(out,'report_shortening'),6.8,3.1)
+save_review_plot(shortening,file.path(out,'report_shortening'),6.5,2.7)
 
 
 app <- file.path(root,'data/R_astodrimer_application')
@@ -63,25 +63,25 @@ write.csv(summary,file.path(out,'clinical_cure_summary.csv'),row.names=FALSE)
 write.csv(diff,file.path(out,'clinical_cure_differences.csv'),row.names=FALSE)
 labels <- c('0.5%','1%','3%')
 summary$concentration_label <- factor(labels,levels=labels)
-dose_colours <- setNames(unname(review_colours[c('grey','blue','grey')]),labels)
+dose_colours <- setNames(unname(review_colours[c('ink','ink','ink')]),labels)
 cure <- ggplot(summary,aes(x=concentration_label,y=posterior_mean,colour=concentration_label)) +
- geom_errorbar(aes(ymin=credible_lower,ymax=credible_upper),width=.12,linewidth=.55) +
- geom_point(size=2) + scale_colour_manual(values=dose_colours) +
- scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.25)) +
- labs(title='(a)',
-      x='Astodrimer concentration',y='Cure probability') + review_theme() +
+ geom_errorbar(aes(ymin=credible_lower,ymax=credible_upper),width=.10,linewidth=.4) +
+ geom_point(size=1.6) + scale_colour_manual(values=dose_colours) +
+ scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.2),labels=function(x)sprintf('%.1f',x)) +
+ labs(title='(a) Cure probabilities',
+      x='Astodrimer concentration',y='Probability of cure') + review_theme() +
  theme(legend.position='none',panel.grid.major.x=element_blank())
-diff$comparison <- factor(c('1% vs 0.5%','1% vs 3%'),levels=c('1% vs 3%','1% vs 0.5%'))
+diff$comparison <- factor(c('1% minus 0.5%','1% minus 3%'),levels=c('1% minus 3%','1% minus 0.5%'))
 comparisons <- ggplot(diff,aes(y=comparison,x=100*posterior_mean_difference)) +
- geom_vline(xintercept=0,linetype='dashed',colour=review_colours['ink'],linewidth=.4) +
+ geom_vline(xintercept=0,linetype='dashed',colour=review_colours['guide'],linewidth=.3) +
  geom_errorbar(aes(xmin=100*credible_lower,xmax=100*credible_upper),
-               orientation='y',width=.12,linewidth=.55,colour=review_colours['grey']) +
- geom_point(size=2,colour=review_colours['blue']) +
+               orientation='y',width=.10,linewidth=.4,colour=review_colours['ink']) +
+ geom_point(size=1.6,colour=review_colours['ink']) +
  scale_x_continuous(breaks=c(-10,0,10,20,30,40),limits=c(-12,43)) +
- labs(title='(b)',
-      x='Difference (percentage points)',y=NULL) + review_theme() +
+ labs(title='(b) Cure differences',
+      x='Difference in cure probability\n(percentage points)',y=NULL) + review_theme() +
  theme(legend.position='none',panel.grid.major.y=element_blank())
-save_review_panels(list(cure,comparisons),file.path(out,'clinical_cure'),6.8,3.45,widths=c(1,1.15))
+save_review_panels(list(cure,comparisons),file.path(out,'clinical_cure'),6.5,3.2,widths=c(1,1.25))
 jsonlite::write_json(list(status='PASS',history_pairs=32L,reports=223L,
  summaries_checked_against_saved_records=TRUE,primary_posterior_draws=nrow(draws),
  posterior_intervals_are_not_Monte_Carlo_intervals=TRUE,plot_engine='ggplot2',

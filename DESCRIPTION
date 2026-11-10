@@ -1,7 +1,7 @@
 Package: bartDoseReview
 Type: Package
 Title: Review and Explanation of BART-Guided Dose Recommendations
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("Siyi", "Chen", email = "sche11@lsuhsc.edu",
     role = c("aut", "cre"), comment = c(ORCID = "0000-0001-8019-8149"))
 Description: Functions for reviewing dose recommendations from Bayesian additive
